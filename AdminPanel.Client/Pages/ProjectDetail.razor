@@ -1,0 +1,381 @@
+@page "/projects/{Id:int}"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@(project?.ProjectTitle ?? "Project")</PageTitle>
+
+<div class="container">
+    @if (project is null)
+    {
+        <p class="muted">Loading...</p>
+    }
+    else
+    {
+        <div class="detail-header">
+            <div>
+                <h1>@project.ProjectTitle</h1>
+                <p class="muted">
+                    @project.CompanyName &middot;
+                    <span class="badge badge-@project.Status.ToLowerInvariant()">@project.Status</span>
+                </p>
+            </div>
+            <div class="toolbar">
+                <a class="btn" href="/projects/@Id/edit">Edit</a>
+                @if (!confirmDelete)
+                {
+                    <button class="btn btn-danger" @onclick="() => confirmDelete = true">Delete</button>
+                }
+                else
+                {
+                    <button class="btn btn-danger" @onclick="DeleteProject">Confirm delete?</button>
+                    <button class="btn" @onclick="() => confirmDelete = false">Cancel</button>
+                }
+            </div>
+        </div>
+
+        <div class="tabs">
+            @foreach (var tab in tabs)
+            {
+                <button class="tab-btn @(activeTab == tab ? "active" : "")" @onclick="() => activeTab = tab">@tab</button>
+            }
+        </div>
+
+        @if (activeTab == "Overview")
+        {
+            <div class="card">
+                <div class="form-row">
+                    <div><label>Description</label><p>@(project.Description ?? "—")</p></div>
+                    <div><label>Source</label><p>@(project.Source ?? "—")</p></div>
+                </div>
+                <div class="form-row">
+                    <div><label>Start Date</label><p>@(project.StartDate?.ToString("yyyy-MM-dd") ?? "—")</p></div>
+                    <div><label>End Date</label><p>@(project.EndDate?.ToString("yyyy-MM-dd") ?? "—")</p></div>
+                </div>
+                <div class="form-row">
+                    <div><label>Rate</label><p>@(project.RateAmount is null ? "—" : $"{project.RateAmount:0.##} {project.Currency} ({project.RateType})")</p></div>
+                    <div><label>Budget Total</label><p>@(project.BudgetTotal is null ? "—" : $"{project.BudgetTotal:0.##} {project.Currency}")</p></div>
+                </div>
+                <div class="form-row">
+                    <div><label>Payment Terms</label><p>@(project.PaymentTerms ?? "—")</p></div>
+                    <div><label>Priority</label><p>@(project.Priority ?? "—")</p></div>
+                </div>
+                <div><label>Notes</label><p>@(project.Notes ?? "—")</p></div>
+                <p class="muted">Created @project.CreatedAt.ToString("yyyy-MM-dd") &middot; Updated @project.UpdatedAt.ToString("yyyy-MM-dd")</p>
+            </div>
+        }
+        else if (activeTab == "Contacts")
+        {
+            <div class="card" style="margin-bottom:1rem;">
+                @foreach (var c in project.Contacts)
+                {
+                    <div class="list-item">
+                        <div>
+                            <strong>@c.Name</strong> @(c.Role is null ? "" : $"— {c.Role}")<br />
+                            <span class="muted">@(c.Email ?? "") @(c.Phone is null ? "" : $" · {c.Phone}") @(c.PreferredChannel is null ? "" : $" · prefers {c.PreferredChannel}")</span>
+                            @if (!string.IsNullOrWhiteSpace(c.Notes))
+                            {
+                                <p class="muted">@c.Notes</p>
+                            }
+                        </div>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteContact(c.Id)">Delete</button>
+                    </div>
+                }
+                @if (project.Contacts.Count == 0)
+                {
+                    <div class="empty-state">No contacts yet.</div>
+                }
+            </div>
+            <div class="card">
+                <h3>Add Contact</h3>
+                <EditForm Model="newContact" OnValidSubmit="AddContact">
+                    <div class="form-row">
+                        <div class="form-group"><label>Name</label><InputText @bind-Value="newContact.Name" /></div>
+                        <div class="form-group"><label>Role</label><InputText @bind-Value="newContact.Role" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Email</label><InputText @bind-Value="newContact.Email" /></div>
+                        <div class="form-group"><label>Phone</label><InputText @bind-Value="newContact.Phone" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Preferred Channel</label><InputText @bind-Value="newContact.PreferredChannel" /></div>
+                        <div class="form-group"><label>Notes</label><InputText @bind-Value="newContact.Notes" /></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Contact</button>
+                </EditForm>
+            </div>
+        }
+        else if (activeTab == "Documents")
+        {
+            <div class="card" style="margin-bottom:1rem;">
+                @foreach (var d in project.Documents)
+                {
+                    <div class="list-item">
+                        <div>
+                            <strong>@d.Title</strong> <span class="badge badge-lead">@d.Type</span><br />
+                            <span class="muted">@d.MimeType &middot; @FormatSize(d.Size) &middot; uploaded @d.UploadedAt.ToString("yyyy-MM-dd")</span>
+                        </div>
+                        <div class="toolbar">
+                            <a class="btn btn-sm" href="@($"api/documents/{d.Id}/download")" target="_blank">Download</a>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteDocument(d.Id)">Delete</button>
+                        </div>
+                    </div>
+                }
+                @if (project.Documents.Count == 0)
+                {
+                    <div class="empty-state">No documents yet.</div>
+                }
+            </div>
+            <div class="card">
+                <h3>Upload Document</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select @bind="newDocumentType">
+                            <option value="Contract">Contract</option>
+                            <option value="Nda">NDA</option>
+                            <option value="Proposal">Proposal</option>
+                            <option value="Invoice">Invoice</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Title (optional)</label>
+                        <input @bind="newDocumentTitle" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>File</label>
+                    <InputFile OnChange="OnFileSelected" />
+                </div>
+                @if (uploadError is not null)
+                {
+                    <p class="error-text">@uploadError</p>
+                }
+                <button class="btn btn-primary" @onclick="UploadDocument" disabled="@(selectedFile is null || uploading)">
+                    @(uploading ? "Uploading..." : "Upload")
+                </button>
+            </div>
+        }
+        else if (activeTab == "Invoices")
+        {
+            <div class="card" style="margin-bottom:1rem;">
+                @foreach (var i in project.Invoices)
+                {
+                    <div class="list-item">
+                        <div>
+                            <strong>@i.Amount.ToString("0.##") @i.Currency</strong>
+                            <span class="badge badge-@i.Status.ToLowerInvariant()">@i.Status</span><br />
+                            <span class="muted">
+                                Issued @i.IssuedDate.ToString("yyyy-MM-dd")
+                                @(i.DueDate is null ? "" : $" · Due {i.DueDate:yyyy-MM-dd}")
+                                @(i.PaidAt is null ? "" : $" · Paid {i.PaidAt:yyyy-MM-dd}")
+                            </span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteInvoice(i.Id)">Delete</button>
+                    </div>
+                }
+                @if (project.Invoices.Count == 0)
+                {
+                    <div class="empty-state">No invoices yet.</div>
+                }
+            </div>
+            <div class="card">
+                <h3>Add Invoice</h3>
+                <EditForm Model="newInvoice" OnValidSubmit="AddInvoice">
+                    <div class="form-row">
+                        <div class="form-group"><label>Amount</label><InputNumber @bind-Value="newInvoice.Amount" /></div>
+                        <div class="form-group"><label>Currency</label><InputText @bind-Value="newInvoice.Currency" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Issued Date</label><InputDate @bind-Value="newInvoice.IssuedDate" /></div>
+                        <div class="form-group"><label>Due Date</label><InputDate @bind-Value="newInvoiceDueDate" /></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <InputSelect @bind-Value="newInvoice.Status">
+                            <option value="Draft">Draft</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Overdue">Overdue</option>
+                        </InputSelect>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Invoice</button>
+                </EditForm>
+            </div>
+        }
+        else if (activeTab == "Notes")
+        {
+            <div class="card" style="margin-bottom:1rem;">
+                @foreach (var n in project.TimelineNotes)
+                {
+                    <div class="list-item">
+                        <div>
+                            <p style="margin:0">@n.Body</p>
+                            <span class="muted">@n.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteNote(n.Id)">Delete</button>
+                    </div>
+                }
+                @if (project.TimelineNotes.Count == 0)
+                {
+                    <div class="empty-state">No notes yet.</div>
+                }
+            </div>
+            <div class="card">
+                <h3>Add Note</h3>
+                <EditForm Model="newNote" OnValidSubmit="AddNote">
+                    <div class="form-group">
+                        <InputTextArea @bind-Value="newNote.Body" placeholder="What happened? What did the client say?" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Note</button>
+                </EditForm>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private ProjectDetailDto? project;
+    private bool confirmDelete;
+    private string activeTab = "Overview";
+    private static readonly string[] tabs = ["Overview", "Contacts", "Documents", "Invoices", "Notes"];
+
+    private ContactUpsertRequest newContact = new();
+    private InvoiceUpsertRequest newInvoice = new() { IssuedDate = DateOnly.FromDateTime(DateTime.Today) };
+    private DateOnly? newInvoiceDueDate;
+    private NoteCreateRequest newNote = new();
+
+    private string newDocumentType = "Contract";
+    private string newDocumentTitle = "";
+    private IBrowserFile? selectedFile;
+    private bool uploading;
+    private string? uploadError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (project is not null && project.Id != Id)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        project = await Api.GetProjectAsync(Id);
+        confirmDelete = false;
+        activeTab = "Overview";
+    }
+
+    private async Task DeleteProject()
+    {
+        await Api.DeleteProjectAsync(Id);
+        Nav.NavigateTo("/");
+    }
+
+    private async Task AddContact()
+    {
+        await Api.CreateContactAsync(Id, newContact);
+        newContact = new();
+        await LoadAsync();
+        activeTab = "Contacts";
+    }
+
+    private async Task DeleteContact(int contactId)
+    {
+        await Api.DeleteContactAsync(contactId);
+        await LoadAsync();
+        activeTab = "Contacts";
+    }
+
+    private async Task AddInvoice()
+    {
+        newInvoice.DueDate = newInvoiceDueDate;
+        await Api.CreateInvoiceAsync(Id, newInvoice);
+        newInvoice = new() { IssuedDate = DateOnly.FromDateTime(DateTime.Today) };
+        newInvoiceDueDate = null;
+        await LoadAsync();
+        activeTab = "Invoices";
+    }
+
+    private async Task DeleteDocument(int documentId)
+    {
+        await Api.DeleteDocumentAsync(documentId);
+        await LoadAsync();
+        activeTab = "Documents";
+    }
+
+    private async Task DeleteInvoice(int invoiceId)
+    {
+        await Api.DeleteInvoiceAsync(invoiceId);
+        await LoadAsync();
+        activeTab = "Invoices";
+    }
+
+    private async Task AddNote()
+    {
+        if (string.IsNullOrWhiteSpace(newNote.Body)) return;
+        await Api.CreateNoteAsync(Id, newNote);
+        newNote = new();
+        await LoadAsync();
+        activeTab = "Notes";
+    }
+
+    private async Task DeleteNote(int noteId)
+    {
+        await Api.DeleteNoteAsync(noteId);
+        await LoadAsync();
+        activeTab = "Notes";
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadError = null;
+    }
+
+    private async Task UploadDocument()
+    {
+        if (selectedFile is null) return;
+        uploading = true;
+        uploadError = null;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            using var fileStream = selectedFile.OpenReadStream(maxAllowedSize: 50_000_000);
+            using var streamContent = new StreamContent(fileStream);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(selectedFile.ContentType) ? "application/octet-stream" : selectedFile.ContentType);
+
+            content.Add(streamContent, "file", selectedFile.Name);
+            content.Add(new StringContent(newDocumentType), "type");
+            content.Add(new StringContent(newDocumentTitle), "title");
+
+            await Api.UploadDocumentAsync(Id, content);
+
+            selectedFile = null;
+            newDocumentTitle = "";
+            await LoadAsync();
+            activeTab = "Documents";
+        }
+        catch (Exception ex)
+        {
+            uploadError = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.#} KB";
+        return $"{bytes / (1024.0 * 1024):0.#} MB";
+    }
+}

@@ -1,0 +1,91 @@
+@page "/"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Projects</PageTitle>
+
+<div class="container">
+    <div class="page-header">
+        <h1>Freelance Projects</h1>
+        <div class="toolbar">
+            <a class="btn btn-primary" href="/projects/new">+ New Project</a>
+        </div>
+    </div>
+
+    <div class="filters">
+        <input placeholder="Search company or title..." @bind="searchTerm" @bind:event="oninput" />
+        <select @bind="statusFilter">
+            <option value="">All statuses</option>
+            @foreach (var status in statusOptions)
+            {
+                <option value="@status">@status</option>
+            }
+        </select>
+    </div>
+
+    @if (projects is null)
+    {
+        <p class="muted">Loading...</p>
+    }
+    else if (FilteredProjects.Count == 0)
+    {
+        <div class="card empty-state">
+            No projects match. <a href="/projects/new">Create your first project</a>.
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Rate</th>
+                        <th>Start</th>
+                        <th>End</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in FilteredProjects)
+                    {
+                        <tr @onclick="() => GoToProject(p.Id)">
+                            <td data-label="Company">@p.CompanyName</td>
+                            <td data-label="Project">@p.ProjectTitle</td>
+                            <td data-label="Status"><span class="badge badge-@p.Status.ToLowerInvariant()">@p.Status</span></td>
+                            <td data-label="Rate">@(p.RateAmount is null ? "—" : $"{p.RateAmount:0.##} {p.Currency} ({p.RateType})")</td>
+                            <td data-label="Start">@(p.StartDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td data-label="End">@(p.EndDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProjectSummaryDto>? projects;
+    private string searchTerm = "";
+    private string statusFilter = "";
+
+    private static readonly string[] statusOptions =
+        ["Lead", "ProposalSent", "Active", "Paused", "Completed", "Cancelled"];
+
+    private List<ProjectSummaryDto> FilteredProjects =>
+        (projects ?? [])
+            .Where(p => statusFilter == "" || p.Status == statusFilter)
+            .Where(p => searchTerm == "" ||
+                        p.CompanyName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        p.ProjectTitle.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        projects = await Api.GetProjectsAsync();
+    }
+
+    private void GoToProject(int id) => Nav.NavigateTo($"/projects/{id}");
+}

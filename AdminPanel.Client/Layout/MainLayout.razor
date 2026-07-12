@@ -1,0 +1,20 @@
+﻿@inherits LayoutComponentBase
+
+<div class="topnav">
+    <a class="brand" href="/">Freelance Projects</a>
+    <AuthorizeView>
+        <Authorized>
+            <form action="Account/Logout?returnUrl=/" method="post" style="margin:0;">
+                <button type="submit" class="btn btn-sm">Log out</button>
+            </form>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@Body
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

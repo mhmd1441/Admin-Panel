@@ -1,0 +1,191 @@
+@page "/projects/new"
+@page "/projects/{Id:int}/edit"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>@(Id is null ? "New Project" : "Edit Project")</PageTitle>
+
+<div class="container">
+    <h1>@(Id is null ? "New Project" : "Edit Project")</h1>
+
+    @if (loading)
+    {
+        <p class="muted">Loading...</p>
+    }
+    else
+    {
+        <div class="card">
+            <EditForm Model="model" OnValidSubmit="Submit">
+                <DataAnnotationsValidator />
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <InputText @bind-Value="model.CompanyName" />
+                    </div>
+                    <div class="form-group">
+                        <label>Project Title</label>
+                        <InputText @bind-Value="model.ProjectTitle" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <InputTextArea @bind-Value="model.Description" />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <InputSelect @bind-Value="model.Status">
+                            @foreach (var s in statusOptions)
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="form-group">
+                        <label>Source (how you found it)</label>
+                        <InputText @bind-Value="model.Source" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <InputDate @bind-Value="startDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <InputDate @bind-Value="endDate" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Rate Type</label>
+                        <InputSelect @bind-Value="model.RateType">
+                            <option value="Hourly">Hourly</option>
+                            <option value="Fixed">Fixed</option>
+                            <option value="Retainer">Retainer</option>
+                        </InputSelect>
+                    </div>
+                    <div class="form-group">
+                        <label>Rate Amount</label>
+                        <InputNumber @bind-Value="model.RateAmount" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Currency</label>
+                        <InputText @bind-Value="model.Currency" />
+                    </div>
+                    <div class="form-group">
+                        <label>Budget Total</label>
+                        <InputNumber @bind-Value="model.BudgetTotal" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Payment Terms</label>
+                        <InputText @bind-Value="model.PaymentTerms" />
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <InputText @bind-Value="model.Priority" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <InputTextArea @bind-Value="model.Notes" />
+                </div>
+
+                <ValidationSummary class="error-text" />
+                @if (error is not null)
+                {
+                    <p class="error-text">@error</p>
+                }
+
+                <div class="toolbar">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <a class="btn" href="@CancelUrl">Cancel</a>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private ProjectUpsertRequest model = new();
+    private DateOnly? startDate;
+    private DateOnly? endDate;
+    private bool loading = true;
+    private string? error;
+
+    private static readonly string[] statusOptions =
+        ["Lead", "ProposalSent", "Active", "Paused", "Completed", "Cancelled"];
+
+    private string CancelUrl => Id is null ? "/" : $"/projects/{Id}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is not null)
+        {
+            var project = await Api.GetProjectAsync(Id.Value);
+            if (project is not null)
+            {
+                model = new ProjectUpsertRequest
+                {
+                    CompanyName = project.CompanyName,
+                    ProjectTitle = project.ProjectTitle,
+                    Description = project.Description,
+                    Status = project.Status,
+                    Source = project.Source,
+                    StartDate = project.StartDate,
+                    EndDate = project.EndDate,
+                    Currency = project.Currency,
+                    RateType = project.RateType,
+                    RateAmount = project.RateAmount,
+                    BudgetTotal = project.BudgetTotal,
+                    PaymentTerms = project.PaymentTerms,
+                    Priority = project.Priority,
+                    Notes = project.Notes
+                };
+                startDate = project.StartDate;
+                endDate = project.EndDate;
+            }
+        }
+        loading = false;
+    }
+
+    private async Task Submit()
+    {
+        error = null;
+        model.StartDate = startDate;
+        model.EndDate = endDate;
+
+        try
+        {
+            if (Id is null)
+            {
+                var created = await Api.CreateProjectAsync(model);
+                Nav.NavigateTo($"/projects/{created!.Id}");
+            }
+            else
+            {
+                await Api.UpdateProjectAsync(Id.Value, model);
+                Nav.NavigateTo($"/projects/{Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Could not save: {ex.Message}";
+        }
+    }
+}
