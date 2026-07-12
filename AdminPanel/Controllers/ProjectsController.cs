@@ -33,6 +33,7 @@ public class ProjectsController(ApplicationDbContext db) : ControllerBase
             .Include(p => p.Documents)
             .Include(p => p.Invoices)
             .Include(p => p.TimelineNotes)
+            .Include(p => p.Requirements)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (project is null) return NotFound();
@@ -83,6 +84,7 @@ public class ProjectsController(ApplicationDbContext db) : ControllerBase
             .Include(p => p.Documents)
             .Include(p => p.Invoices)
             .Include(p => p.TimelineNotes)
+            .Include(p => p.Requirements)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (project is null) return NotFound();
@@ -141,6 +143,7 @@ public class ProjectsController(ApplicationDbContext db) : ControllerBase
         p.Contacts.Select(c => new ProjectContactDto(c.Id, c.Name, c.Role, c.Email, c.Phone, c.PreferredChannel, c.Notes)).ToList(),
         p.Documents.Select(d => new ProjectDocumentDto(d.Id, d.Type.ToString(), d.Title, d.MimeType, d.Size, d.UploadedAt)).ToList(),
         p.Invoices.Select(i => new ProjectInvoiceDto(i.Id, i.Amount, i.Currency, i.IssuedDate, i.DueDate, i.PaidAt, i.Status.ToString())).ToList(),
-        p.TimelineNotes.OrderByDescending(n => n.CreatedAt).Select(n => new ProjectNoteDto(n.Id, n.Body, n.CreatedAt)).ToList()
+        p.TimelineNotes.OrderByDescending(n => n.CreatedAt).Select(n => new ProjectNoteDto(n.Id, n.Body, n.CreatedAt)).ToList(),
+        p.Requirements.OrderBy(r => r.CreatedAt).Select(r => new ProjectRequirementDto(r.Id, r.Description, r.IsDone, r.CreatedAt)).ToList()
     );
 }

@@ -35,8 +35,11 @@ public record ProjectDetailDto(
     List<ProjectContactDto> Contacts,
     List<ProjectDocumentDto> Documents,
     List<ProjectInvoiceDto> Invoices,
-    List<ProjectNoteDto> TimelineNotes
+    List<ProjectNoteDto> TimelineNotes,
+    List<ProjectRequirementDto> Requirements
 );
+
+public record ProjectRequirementDto(int Id, string Description, bool IsDone, DateTime CreatedAt);
 
 public record ProjectContactDto(int Id, string Name, string? Role, string? Email, string? Phone, string? PreferredChannel, string? Notes);
 
@@ -87,4 +90,10 @@ public class InvoiceUpsertRequest
 public class NoteCreateRequest
 {
     [Required, StringLength(10000)] public string Body { get; set; } = "";
+}
+
+public class RequirementUpsertRequest
+{
+    [Required, StringLength(1000)] public string Description { get; set; } = "";
+    public bool IsDone { get; set; }
 }

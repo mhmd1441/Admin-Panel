@@ -11,6 +11,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
     public DbSet<ProjectInvoice> ProjectInvoices => Set<ProjectInvoice>();
     public DbSet<ProjectNote> ProjectNotes => Set<ProjectNote>();
+    public DbSet<ProjectRequirement> ProjectRequirements => Set<ProjectRequirement>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -29,6 +30,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasForeignKey(i => i.ProjectId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(p => p.TimelineNotes).WithOne(n => n.Project!)
                 .HasForeignKey(n => n.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(p => p.Requirements).WithOne(r => r.Project!)
+                .HasForeignKey(r => r.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<ProjectInvoice>().Property(i => i.Amount).HasPrecision(18, 2);

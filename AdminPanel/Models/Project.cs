@@ -41,4 +41,5 @@ public class Project
     public List<ProjectDocument> Documents { get; set; } = [];
     public List<ProjectInvoice> Invoices { get; set; } = [];
     public List<ProjectNote> TimelineNotes { get; set; } = [];
+    public List<ProjectRequirement> Requirements { get; set; } = [];
 }

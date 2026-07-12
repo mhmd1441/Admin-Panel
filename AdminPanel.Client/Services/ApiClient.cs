@@ -73,6 +73,24 @@ public class ApiClient(HttpClient http)
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task CreateRequirementAsync(int projectId, RequirementUpsertRequest request)
+    {
+        var response = await http.PostAsJsonAsync($"api/projects/{projectId}/requirements", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task UpdateRequirementAsync(int id, RequirementUpsertRequest request)
+    {
+        var response = await http.PutAsJsonAsync($"api/requirements/{id}", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteRequirementAsync(int id)
+    {
+        var response = await http.DeleteAsync($"api/requirements/{id}");
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task UploadDocumentAsync(int projectId, MultipartFormDataContent content)
     {
         var response = await http.PostAsync($"api/projects/{projectId}/documents", content);
